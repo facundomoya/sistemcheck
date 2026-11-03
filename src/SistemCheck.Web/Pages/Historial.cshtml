@@ -1,0 +1,44 @@
+@page
+@model HistorialModel
+@{
+    ViewData["Title"] = "Historial";
+}
+
+<h1 class="h3 mb-3">Historial de consultas</h1>
+
+@if (Model.Consultas.Count == 0)
+{
+    <p class="text-muted">Todavía no hiciste consultas. <a asp-page="/Index">Evaluá tu primer cliente</a>.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>CUIT/CUIL</th>
+                    <th>Denominación</th>
+                    <th class="text-end">Monto solicitado</th>
+                    <th class="text-end">Deuda total</th>
+                    <th class="text-center">Situación</th>
+                    <th>Resultado</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var c in Model.Consultas)
+                {
+                    <tr>
+                        <td class="text-nowrap">@Formato.Fecha(c.FechaUtc)</td>
+                        <td>@c.Cuit</td>
+                        <td>@(c.Denominacion ?? "-")</td>
+                        <td class="text-end text-nowrap">@(c.MontoSolicitado is { } monto ? Formato.Pesos(monto) : "-")</td>
+                        <td class="text-end text-nowrap">@Formato.Pesos(c.DeudaTotal)</td>
+                        <td class="text-center">@(c.PeorSituacion?.ToString() ?? "-")</td>
+                        <td><span class="badge @Formato.ClaseSemaforo(c.Semaforo)">@Formato.TextoSemaforo(c.Semaforo)</span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

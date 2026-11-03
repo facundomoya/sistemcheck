@@ -1,0 +1,83 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Nueva evaluación";
+}
+
+<h1 class="h3 mb-3">Evaluar riesgo comercial</h1>
+
+<form method="post" class="row g-3 align-items-start mb-4">
+    <div class="col-sm-5">
+        <label asp-for="Cuit" class="form-label"></label>
+        <input asp-for="Cuit" class="form-control" placeholder="30-50001091-2" autofocus />
+        <span asp-validation-for="Cuit" class="text-danger small"></span>
+    </div>
+    <div class="col-sm-4">
+        <label asp-for="Monto" class="form-label"></label>
+        <input asp-for="Monto" type="number" step="0.01" min="0.01" class="form-control" />
+        <span asp-validation-for="Monto" class="text-danger small"></span>
+    </div>
+    <div class="col-sm-3">
+        <label class="form-label d-none d-sm-block">&nbsp;</label>
+        <button type="submit" class="btn btn-primary w-100">Evaluar</button>
+    </div>
+    <div asp-validation-summary="ModelOnly" class="text-danger col-12"></div>
+</form>
+
+@if (Model.Resultado is { } r)
+{
+    <section class="card shadow-sm">
+        <div class="card-header @Formato.ClaseSemaforo(r.Dictamen.Semaforo) h4 mb-0 py-3">
+            @r.Dictamen.Resultado
+        </div>
+        <div class="card-body">
+            <h2 class="h5 mb-1">@(r.Informe.Denominacion ?? "Sin denominación informada")</h2>
+            <p class="text-muted">CUIT/CUIL @r.Informe.Cuit</p>
+            <p>@r.Dictamen.Resumen</p>
+
+            <dl class="row mb-0">
+                <dt class="col-sm-5">Monto solicitado</dt>
+                <dd class="col-sm-7">@Formato.Pesos(r.MontoSolicitado ?? 0)</dd>
+                <dt class="col-sm-5">Peor situación</dt>
+                <dd class="col-sm-7">@(r.Informe.PeorSituacion?.ToString() ?? "Sin datos")</dd>
+                <dt class="col-sm-5">Total adeudado en el sistema financiero</dt>
+                <dd class="col-sm-7">@Formato.Pesos(r.Informe.DeudaTotal)</dd>
+                <dt class="col-sm-5">Cheques rechazados</dt>
+                <dd class="col-sm-7">
+                    @r.Informe.ChequesRechazados
+                    @if (r.Informe.ChequesImpagos > 0)
+                    {
+                        <span class="text-danger">(@r.Informe.ChequesImpagos sin pagar por @Formato.Pesos(r.Informe.MontoChequesImpagos))</span>
+                    }
+                </dd>
+                <dt class="col-sm-5">Período informado</dt>
+                <dd class="col-sm-7">@Formato.Periodo(r.Informe.Periodo)</dd>
+            </dl>
+
+            @if (r.Informe.Deudas.Count > 0)
+            {
+                <div class="table-responsive mt-3">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr><th>Entidad</th><th class="text-center">Situación</th><th class="text-end">Monto</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var d in r.Informe.Deudas.OrderByDescending(d => d.Situacion).ThenByDescending(d => d.Monto))
+                            {
+                                <tr>
+                                    <td>@d.Entidad</td>
+                                    <td class="text-center">@d.Situacion</td>
+                                    <td class="text-end">@Formato.Pesos(d.Monto)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+        <div class="card-footer text-muted small">
+            @(r.DesdeCache ? "Informe desde el caché local" : "Informe consultado al BCRA recién")
+            · obtenido el @Formato.Fecha(r.ConsultadoEnUtc)
+        </div>
+    </section>
+}

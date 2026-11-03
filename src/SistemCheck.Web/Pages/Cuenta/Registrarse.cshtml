@@ -1,0 +1,30 @@
+@page
+@model SistemCheck.Web.Pages.Cuenta.RegistrarseModel
+@{
+    ViewData["Title"] = "Registrarse";
+}
+
+<div class="row justify-content-center">
+    <div class="col-sm-8 col-md-5">
+        <h1 class="h3 mb-3">Crear cuenta</h1>
+        <form method="post">
+            <div class="mb-3">
+                <label asp-for="Empresa" class="form-label"></label>
+                <input asp-for="Empresa" class="form-control" autocomplete="organization" autofocus />
+                <span asp-validation-for="Empresa" class="text-danger small"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Email" class="form-label"></label>
+                <input asp-for="Email" class="form-control" autocomplete="username" />
+                <span asp-validation-for="Email" class="text-danger small"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Password" class="form-label"></label>
+                <input asp-for="Password" class="form-control" autocomplete="new-password" />
+                <span asp-validation-for="Password" class="text-danger small"></span>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Crear cuenta</button>
+        </form>
+        <p class="mt-3">¿Ya tenés cuenta? <a asp-page="/Cuenta/Ingresar">Ingresá</a>.</p>
+    </div>
+</div>
