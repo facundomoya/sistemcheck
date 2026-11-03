@@ -22,7 +22,8 @@ Requiere el SDK de .NET 10 y un servidor MySQL 8.
 - Aplicación web: http://localhost:5252 (hay que crear una cuenta en "Registrate")
 - Documentación de la API (Swagger): http://localhost:5252/swagger
 
-Los tests no necesitan MySQL, porque usan SQLite en memoria. Para correrlos:
+Los tests no necesitan MySQL ni conexión al BCRA, porque usan SQLite en memoria y una fuente de informes
+falsa. Incluyen pruebas de la API por HTTP (`ApiTests`). Para correrlos:
 
 ```bash
 dotnet test
@@ -101,11 +102,58 @@ GET /api/evaluacion/{cuit}?monto=1500.50
 `monto` es opcional. El CUIT se acepta con o sin guiones. La API es pública, sin autenticación, y sus
 consultas no aparecen en el historial de ningún usuario.
 
+La documentación completa, con ejemplos, está en Swagger UI (`/swagger`) y el documento OpenAPI en
+`/swagger/v1/swagger.json`, que sirve para generar clientes en cualquier lenguaje.
+
 | Código | Significado |
 | --- | --- |
-| 200 | Informe consolidado |
+| 200 | Informe consolidado (`application/json`) |
 | 400 | CUIT o monto inválido |
+| 404 | La ruta no existe |
 | 503 | El BCRA no está disponible |
+| 500 | Error inesperado del servidor |
+
+Los errores siempre usan ProblemDetails ([RFC 7807](https://www.rfc-editor.org/rfc/rfc7807)), con
+`Content-Type: application/problem+json`, también en Development. Nunca incluyen detalles internos:
+
+```json
+{
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "El CUIT/CUIL no es válido.",
+  "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00"
+}
+```
+
+Cuando el error es de un parámetro, como `monto`, la respuesta 400 agrega `errors` con los mensajes de
+cada parámetro.
+
+### CORS
+
+Por defecto no se permite ningún origen. Para que una aplicación web de otro grupo llame a la API desde
+el navegador, agregá su origen en `Cors:OrigenesPermitidos`, en `appsettings.json` o en el `.env`:
+
+```bash
+Cors__OrigenesPermitidos__0='http://localhost:3000'
+Cors__OrigenesPermitidos__1='http://192.168.0.20:8080'
+```
+
+CORS solo afecta a los navegadores. Un backend (C#, Java, Python, etc.) puede consumir la API sin
+configurar nada.
+
+### Acceso desde otra computadora
+
+El perfil `http` solo escucha en `localhost`. El perfil `red` escucha en todas las interfaces, en entorno
+Production, sin la página de errores de desarrollo:
+
+```bash
+dotnet run --project src/SistemCheck.Web --launch-profile red
+```
+
+Los demás acceden con `http://<IP de esta computadora>:5252` (la IP se ve con `ipconfig`). La primera vez,
+Windows puede pedir permiso en el firewall para el puerto 5252. En un servidor sin perfiles, lo mismo se
+logra con la variable `ASPNETCORE_URLS=http://0.0.0.0:5252`.
 
 Ejemplo de respuesta (resumida):
 

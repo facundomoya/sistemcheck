@@ -16,4 +16,9 @@ public record InformeBcra(
     public decimal DeudaTotal => Deudas.Sum(d => d.Monto);
 }
 
+/// <summary>Deuda de un CUIT con una entidad financiera, en el último período informado.</summary>
+/// <param name="Entidad">Nombre de la entidad financiera.</param>
+/// <param name="Situacion">Situación crediticia informada por la entidad (1 a 5).</param>
+/// <param name="Monto">Monto adeudado, en pesos.</param>
+/// <param name="DiasAtraso">Días de atraso en el pago. Null si la entidad no lo informa.</param>
 public record DeudaEntidad(string Entidad, int Situacion, decimal Monto, int? DiasAtraso);
