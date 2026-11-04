@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using SistemCheck.Web.Dominio;
 using SistemCheck.Web.Servicios;
@@ -7,7 +6,7 @@ namespace SistemCheck.Web.Api;
 
 [ApiController]
 [Route("api/evaluacion")]
-public class EvaluacionController(EvaluacionService evaluaciones) : ControllerBase
+public class EvaluacionController(EvaluacionService evaluaciones, ILogger<EvaluacionController> logger) : ControllerBase
 {
     private const string Json = "application/json";
     private const string ProblemJson = "application/problem+json";
@@ -20,7 +19,7 @@ public class EvaluacionController(EvaluacionService evaluaciones) : ControllerBa
     ///
     /// Ejemplo de solicitud:
     ///
-    ///     GET /api/evaluacion/30-50001091-2?monto=1500.50
+    ///     GET /api/evaluacion/30-50001091-2
     ///
     /// Ejemplo de respuesta 200 (resumida):
     ///
@@ -32,7 +31,6 @@ public class EvaluacionController(EvaluacionService evaluaciones) : ControllerBa
     ///       "resumen": "Situación 1: cliente sin mora o con atrasos menores a 31 días.",
     ///       "peorSituacion": 1,
     ///       "deudaTotal": 329154542000.0,
-    ///       "montoSolicitado": 1500.50,
     ///       "chequesRechazados": 0,
     ///       "chequesImpagos": 0,
     ///       "montoChequesImpagos": 0,
@@ -51,25 +49,22 @@ public class EvaluacionController(EvaluacionService evaluaciones) : ControllerBa
     ///       "detail": "El CUIT/CUIL no es válido.",
     ///       "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00"
     ///     }
-    ///
-    /// Si el error es de un parámetro (por ejemplo, `monto`), la respuesta 400 agrega `errors`, con los
-    /// mensajes de cada parámetro.
     /// </remarks>
     /// <param name="cuit" example="30-50001091-2">CUIT/CUIL de 11 dígitos, con o sin guiones. Obligatorio.</param>
-    /// <param name="monto" example="1500.50">Monto de la venta o crédito, en pesos, con punto decimal. Opcional: se informa en la respuesta, pero no cambia el resultado.</param>
     /// <param name="ct">Cancelación de la solicitud.</param>
     /// <response code="200">Informe consolidado y semáforo.</response>
-    /// <response code="400">CUIT/CUIL inválido, o `monto` con formato incorrecto o fuera de rango.</response>
+    /// <response code="400">CUIT/CUIL inválido.</response>
+    /// <response code="429">Se superó el límite de consultas por minuto de esta IP.</response>
     /// <response code="503">El servicio del BCRA no está disponible y no hay un informe vigente en caché.</response>
     /// <response code="500">Error inesperado del servidor. No incluye detalles internos.</response>
     [HttpGet("{cuit}")]
     [ProducesResponseType<EvaluacionResponse>(StatusCodes.Status200OK, Json)]
-    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, ProblemJson)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, ProblemJson)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests, ProblemJson)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable, ProblemJson)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError, ProblemJson)]
     public async Task<ActionResult<EvaluacionResponse>> Get(
         string cuit,
-        [FromQuery, Range(0.01, 1e12, ErrorMessage = "El monto debe ser mayor a cero y menor a 1.000.000.000.000.")] decimal? monto,
         CancellationToken ct)
     {
         if (!Cuit.TryNormalizar(cuit, out var cuitNormalizado))
@@ -77,11 +72,12 @@ public class EvaluacionController(EvaluacionService evaluaciones) : ControllerBa
 
         try
         {
-            var evaluacion = await evaluaciones.EvaluarAsync(cuitNormalizado, monto, usuarioId: null, ct);
+            var evaluacion = await evaluaciones.EvaluarAsync(cuitNormalizado, usuarioId: null, ct);
             return EvaluacionResponse.Desde(evaluacion);
         }
-        catch (BcraNoDisponibleException)
+        catch (BcraNoDisponibleException ex)
         {
+            logger.LogWarning(ex, "No se pudo obtener el informe del BCRA.");
             return Problem("El servicio del BCRA no está disponible. Intente nuevamente más tarde.",
                 statusCode: StatusCodes.Status503ServiceUnavailable);
         }
@@ -96,7 +92,6 @@ public class EvaluacionController(EvaluacionService evaluaciones) : ControllerBa
 /// <param name="Resumen">Explicación del resultado, en texto.</param>
 /// <param name="PeorSituacion">Peor situación (1 a 5) entre todas las entidades en el último período. Null si no hay deudas informadas.</param>
 /// <param name="DeudaTotal">Deuda total en el sistema financiero, en pesos.</param>
-/// <param name="MontoSolicitado">Monto recibido en la consulta, en pesos. Null si no se envió.</param>
 /// <param name="ChequesRechazados">Cantidad de cheques rechazados informados.</param>
 /// <param name="ChequesImpagos">Cantidad de cheques rechazados que siguen sin pagar.</param>
 /// <param name="MontoChequesImpagos">Suma de los cheques impagos, en pesos.</param>
@@ -112,7 +107,6 @@ public record EvaluacionResponse(
     string Resumen,
     int? PeorSituacion,
     decimal DeudaTotal,
-    decimal? MontoSolicitado,
     int ChequesRechazados,
     int ChequesImpagos,
     decimal MontoChequesImpagos,
@@ -129,7 +123,6 @@ public record EvaluacionResponse(
         e.Dictamen.Resumen,
         e.Informe.PeorSituacion,
         e.Informe.DeudaTotal,
-        e.MontoSolicitado,
         e.Informe.ChequesRechazados,
         e.Informe.ChequesImpagos,
         e.Informe.MontoChequesImpagos,

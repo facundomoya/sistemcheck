@@ -27,7 +27,6 @@ public class Consulta
 
     public required string Cuit { get; set; }
     public string? Denominacion { get; set; }
-    public decimal? MontoSolicitado { get; set; }
     public Semaforo Semaforo { get; set; }
     public int? PeorSituacion { get; set; }
     public decimal DeudaTotal { get; set; }

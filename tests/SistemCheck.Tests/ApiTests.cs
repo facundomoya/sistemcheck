@@ -53,9 +53,24 @@ public sealed class ApiTests : IDisposable
     }
 
     [Fact]
+    public async Task Superar_el_limite_por_minuto_devuelve_problem_details_429()
+    {
+        using var http = _app.WithWebHostBuilder(web => web.UseSetting("Api:LimitePorMinuto", "2")).CreateClient();
+
+        Assert.Equal(HttpStatusCode.OK, (await http.GetAsync($"/api/evaluacion/{CuitValido}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await http.GetAsync($"/api/evaluacion/{CuitValido}")).StatusCode);
+
+        var respuesta = await http.GetAsync($"/api/evaluacion/{CuitValido}");
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, respuesta.StatusCode);
+        Assert.Equal("application/problem+json", respuesta.Content.Headers.ContentType?.MediaType);
+        Assert.Contains("límite", (await LeerJson(respuesta)).GetProperty("detail").GetString());
+    }
+
+    [Fact]
     public async Task Cuit_valido_devuelve_200_con_el_contrato_json()
     {
-        var respuesta = await _http.GetAsync("/api/evaluacion/30-50001091-2?monto=1500.50");
+        var respuesta = await _http.GetAsync("/api/evaluacion/30-50001091-2");
 
         Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
         Assert.Equal("application/json", respuesta.Content.Headers.ContentType?.MediaType);
@@ -64,7 +79,7 @@ public sealed class ApiTests : IDisposable
         Assert.Equal(CuitValido, json.GetProperty("cuit").GetString());
         Assert.Equal("Verde", json.GetProperty("semaforo").GetString());
         Assert.Equal("APROBADO", json.GetProperty("resultado").GetString());
-        Assert.Equal(1500.50m, json.GetProperty("montoSolicitado").GetDecimal());
+        Assert.False(json.TryGetProperty("montoSolicitado", out _));
         Assert.Equal(1, json.GetProperty("deudas").GetArrayLength());
         Assert.False(json.GetProperty("desdeCache").GetBoolean());
     }
@@ -76,19 +91,6 @@ public sealed class ApiTests : IDisposable
 
         var problema = await AssertProblemDetails(respuesta, HttpStatusCode.BadRequest);
         Assert.Equal("El CUIT/CUIL no es válido.", problema.GetProperty("detail").GetString());
-        Assert.Equal(0, _fuente.Llamadas);
-    }
-
-    [Theory]
-    [InlineData("abc")]
-    [InlineData("0")]
-    [InlineData("-5")]
-    public async Task Monto_incorrecto_devuelve_problem_details_400_con_errores(string monto)
-    {
-        var respuesta = await _http.GetAsync($"/api/evaluacion/{CuitValido}?monto={monto}");
-
-        var problema = await AssertProblemDetails(respuesta, HttpStatusCode.BadRequest);
-        Assert.True(problema.GetProperty("errors").TryGetProperty("monto", out _));
         Assert.Equal(0, _fuente.Llamadas);
     }
 

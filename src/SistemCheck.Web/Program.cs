@@ -1,6 +1,6 @@
-using System.Globalization;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Localization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using SistemCheck.Web.Datos;
@@ -11,6 +11,10 @@ using SistemCheck.Web.Servicios;
 DotNetEnv.Env.TraversePath().Load();
 
 var builder = WebApplication.CreateBuilder(args);
+
+// dotnet run solo lo activa en Development. Sin esto, el perfil tunel (Production) no encuentra los
+// CSS y JS comprimidos ni los estilos de las páginas, y el sitio se ve sin diseño.
+builder.WebHost.UseStaticWebAssets();
 
 builder.Services.AddRazorPages(options =>
 {
@@ -39,6 +43,7 @@ builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = 
     contexto.ProblemDetails.Detail ??= contexto.ProblemDetails.Status switch
     {
         StatusCodes.Status404NotFound => "El recurso solicitado no existe.",
+        StatusCodes.Status429TooManyRequests => "Se superó el límite de consultas por minuto. Intente nuevamente más tarde.",
         StatusCodes.Status500InternalServerError => "Ocurrió un error inesperado. Intente nuevamente más tarde.",
         _ => null
     };
@@ -50,6 +55,16 @@ builder.Services.AddCors(options => options.AddPolicy(PoliticaCors, politica => 
     .WithOrigins(origenesPermitidos)
     .WithMethods("GET")
     .AllowAnyHeader()));
+
+// La API es pública y cada consulta escribe en la base: se limita por IP para evitar abusos.
+var limitePorMinuto = builder.Configuration.GetValue("Api:LimitePorMinuto", 60);
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy(PoliticaLimite, contexto => RateLimitPartition.GetFixedWindowLimiter(
+        contexto.Connection.RemoteIpAddress?.ToString() ?? "desconocida",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = limitePorMinuto, Window = TimeSpan.FromMinutes(1) }));
+});
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options => options.LoginPath = "/Cuenta/Ingresar");
@@ -99,26 +114,17 @@ app.UseWhen(contexto => contexto.Request.Path.StartsWithSegments("/api"), api =>
 app.UseSwagger();
 app.UseSwaggerUI();
 
-app.UseHttpsRedirection();
-
-// Los formularios envían decimales con punto (input type="number"). Sin esto, en un servidor
-// con cultura es-AR el binding leería "1500.50" como 150050. El formato en pantalla lo hace Formato.
-app.UseRequestLocalization(new RequestLocalizationOptions
-{
-    DefaultRequestCulture = new RequestCulture(CultureInfo.InvariantCulture),
-    SupportedCultures = [CultureInfo.InvariantCulture],
-    SupportedUICultures = [CultureInfo.InvariantCulture]
-});
-
 app.UseRouting();
 app.UseCors();
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();
 app.MapControllers()
-   .RequireCors(PoliticaCors);
+   .RequireCors(PoliticaCors)
+   .RequireRateLimiting(PoliticaLimite);
 app.MapRazorPages()
    .WithStaticAssets();
 
@@ -127,4 +133,5 @@ app.Run();
 public partial class Program
 {
     private const string PoliticaCors = "Integraciones";
+    private const string PoliticaLimite = "PorIp";
 }
