@@ -1,0 +1,26 @@
+# Base de datos para correr SistemCheck en local, sin instalar MySQL.
+# Uso: docker compose up -d --wait   (y después dotnet run --project src/SistemCheck.Web)
+#
+# Las credenciales son solo para este contenedor local. El puerto 3307 evita chocar con un MySQL
+# ya instalado en el 3306, y solo escucha en esta computadora.
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: sistemcheck-mysql
+    environment:
+      MYSQL_DATABASE: sistemcheck
+      MYSQL_USER: sistemcheck
+      MYSQL_PASSWORD: sistemcheck
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+    ports:
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - sistemcheck-datos:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-usistemcheck", "-psistemcheck"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  sistemcheck-datos:
