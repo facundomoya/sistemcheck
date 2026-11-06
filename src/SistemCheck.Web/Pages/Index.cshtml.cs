@@ -7,14 +7,10 @@ using SistemCheck.Web.Servicios;
 
 namespace SistemCheck.Web.Pages;
 
-public class IndexModel(EvaluacionService evaluaciones) : PageModel
+public class IndexModel(EvaluacionService evaluaciones, ILogger<IndexModel> logger) : PageModel
 {
     [BindProperty, Required(ErrorMessage = "Ingresá el CUIT/CUIL."), Display(Name = "CUIT/CUIL")]
     public string? Cuit { get; set; }
-
-    [BindProperty, Required(ErrorMessage = "Ingresá el monto."), Display(Name = "Monto del crédito o venta")]
-    [Range(0.01, 1e12, ErrorMessage = "El monto debe ser mayor a cero.")]
-    public decimal? Monto { get; set; }
 
     public Evaluacion? Resultado { get; private set; }
 
@@ -34,10 +30,11 @@ public class IndexModel(EvaluacionService evaluaciones) : PageModel
         try
         {
             var usuarioId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            Resultado = await evaluaciones.EvaluarAsync(cuit, Monto, usuarioId, ct);
+            Resultado = await evaluaciones.EvaluarAsync(cuit, usuarioId, ct);
         }
-        catch (BcraNoDisponibleException)
+        catch (BcraNoDisponibleException ex)
         {
+            logger.LogWarning(ex, "No se pudo obtener el informe del BCRA.");
             ModelState.AddModelError("", "El servicio del BCRA no está disponible en este momento. Intentá nuevamente en unos minutos.");
         }
 

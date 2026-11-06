@@ -19,7 +19,6 @@ else
                     <th>Fecha</th>
                     <th>CUIT/CUIL</th>
                     <th>Denominación</th>
-                    <th class="text-end">Monto solicitado</th>
                     <th class="text-end">Deuda total</th>
                     <th class="text-center">Situación</th>
                     <th>Resultado</th>
@@ -32,7 +31,6 @@ else
                         <td class="text-nowrap">@Formato.Fecha(c.FechaUtc)</td>
                         <td>@c.Cuit</td>
                         <td>@(c.Denominacion ?? "-")</td>
-                        <td class="text-end text-nowrap">@(c.MontoSolicitado is { } monto ? Formato.Pesos(monto) : "-")</td>
                         <td class="text-end text-nowrap">@Formato.Pesos(c.DeudaTotal)</td>
                         <td class="text-center">@(c.PeorSituacion?.ToString() ?? "-")</td>
                         <td><span class="badge @Formato.ClaseSemaforo(c.Semaforo)">@Formato.TextoSemaforo(c.Semaforo)</span></td>
