@@ -10,13 +10,14 @@
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
     },
-    "https": {
+    "tunel": {
       "commandName": "Project",
       "dotnetRunMessages": true,
-      "launchBrowser": true,
-      "applicationUrl": "https://localhost:7219;http://localhost:5252",
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5252",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Production",
+        "ASPNETCORE_FORWARDEDHEADERS_ENABLED": "true"
       }
     }
   }

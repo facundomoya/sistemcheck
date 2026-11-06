@@ -28,7 +28,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             consulta.Property(c => c.Cuit).HasMaxLength(11);
             consulta.Property(c => c.Denominacion).HasMaxLength(200);
-            consulta.Property(c => c.MontoSolicitado).HasPrecision(18, 2);
             consulta.Property(c => c.DeudaTotal).HasPrecision(18, 2);
             consulta.HasIndex(c => new { c.UsuarioId, c.FechaUtc });
             consulta.HasOne<Usuario>()

@@ -1,0 +1,86 @@
+SISTEMCHECK - COMO LEVANTARLO EN TU PC
+======================================
+
+SistemCheck es una API que recibe un CUIT/CUIL, consulta la Central de Deudores del BCRA
+y devuelve un informe con un semaforo de riesgo: APROBADO, PRECAUCION o RECHAZADO.
+
+No hace falta instalar MySQL ni crear ningun archivo .env: la base corre en Docker
+y la app ya viene configurada para conectarse a ella.
+
+
+PASO A PASO
+-----------
+1. Abri Docker Desktop y espera a que diga que esta corriendo.
+
+2. Abri una terminal y clona el repositorio:
+
+   git clone https://github.com/facundomoya/sistemcheck.git
+
+3. Entra a la carpeta:
+
+   cd sistemcheck
+
+4. Levanta la base de datos (la primera vez descarga MySQL y tarda unos minutos):
+
+   docker compose up -d --wait
+
+5. Levanta la API:
+
+   dotnet run --project src/SistemCheck.Web
+
+   La primera vez compila y crea las tablas solas. Deja esta terminal abierta
+   mientras la uses.
+
+
+COMO USARLA
+-----------
+Desde tu sistema, hace un GET con el CUIT o CUIL (con o sin guiones):
+
+   GET http://localhost:5252/api/evaluacion/30-50001091-2
+
+No necesita cuenta, clave ni token. La respuesta es un JSON que podes guardar en tu
+propia base de datos.
+
+Documentacion y pruebas desde el navegador (Swagger):
+
+   http://localhost:5252/swagger
+
+
+CUITS PARA PROBAR
+-----------------
+   30-50001091-2   Banco Nacion         -> APROBADO
+   30-70308853-4   Mercadolibre         -> APROBADO
+   30-50095962-9   Vicentin             -> RECHAZADO
+   20-12345678-6   Sin datos en el BCRA -> PRECAUCION
+   30-50001091-3   CUIT invalido        -> error 400
+
+
+CODIGOS DE RESPUESTA
+--------------------
+   200  Informe correcto.
+   400  El CUIT/CUIL no es valido.
+   429  Superaste las 60 consultas por minuto. Espera un minuto.
+   503  El BCRA no respondio o limito las consultas. Reintenta mas tarde.
+
+
+PARA APAGAR TODO
+----------------
+1. En la terminal de la API, toca Ctrl+C.
+2. Apaga la base:
+
+   docker compose down
+
+   Los datos quedan guardados para la proxima vez. Para borrarlos tambien:
+
+   docker compose down -v
+
+
+SI ALGO FALLA
+-------------
+- "failed to connect to the docker API": Docker Desktop no esta abierto. Abrilo y repeti el paso 4.
+- "Unable to connect to any of the specified MySQL hosts": la base no esta levantada. Repeti el paso 4.
+- "address already in use" con el puerto 5252: ya hay algo usando ese puerto. Cerralo, o
+  levanta la API en otro puerto:
+     dotnet run --project src/SistemCheck.Web --urls http://localhost:5260
+- "port is already allocated" con el puerto 3307: otra cosa usa ese puerto. Cerrala y repeti el paso 4.
+- Error 503 en todas las consultas: el BCRA esta caido o limitando consultas. Reintenta en unos minutos.

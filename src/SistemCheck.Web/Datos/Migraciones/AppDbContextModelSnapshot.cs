@@ -41,10 +41,6 @@ namespace SistemCheck.Web.Datos.Migraciones
                     b.Property<DateTime>("FechaUtc")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<decimal?>("MontoSolicitado")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<int?>("PeorSituacion")
                         .HasColumnType("int");
 
